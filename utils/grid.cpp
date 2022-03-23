@@ -4,59 +4,117 @@
 
 #include "grid.h"
 
-void MarkedList::stream() {
-    switch (_listType) {
-        case translateDirection::LEFT:
-            std::rotate(_data.begin(), std::next(_data.begin()), _data.end());
-            break;
+TranslationVectors::TranslationVectors() {
+    _translationDirection = translateDirection::STUB;
+    _offset = 0;
+}
+
+TranslationVectors::TranslationVectors(std::vector<double> &initialData, translateDirection mode): _f(initialData), _translationDirection(mode) {};
+
+bool TranslationVectors::stream() {
+    _offset++;
+    return false;
+}
+
+double TranslationVectors::operator[](int i) const  {
+    int idx;
+    int N = _f.size();
+    switch (_translationDirection) {
         case translateDirection::STUB:
+            idx = i;
             break;
         case translateDirection::RIGHT:
-            std::rotate(_data.begin(), std::prev(_data.end()), _data.end());
+            idx = (N - i + _offset - 1) % N;
+            break;
+        case translateDirection::LEFT:
+            idx = (i + _offset) % N;
             break;
     }
+    return _f[idx];
+}
+double& TranslationVectors::operator[](int i) {
+    int idx;
+    int N = _f.size();
+    switch (_translationDirection) {
+        case translateDirection::STUB:
+            idx = i;
+            break;
+        case translateDirection::RIGHT:
+            idx = (N - i + _offset - 1) % N;
+            break;
+        case translateDirection::LEFT:
+            idx = (i + _offset) % N;
+            break;
+    }
+    return _f[idx];
 }
 
-Grid::Grid(GridInputData & data) {
-    _size = data._dataRight.size();
-    for(auto it : data._dataLeft) {
-        _g[0]._data.push_back(it);
+std::ostream& operator<<(std::ostream& out, TranslationVectors& data) {
+    for(int i = 0; i < data._f.size(); i++) {
+        out << data[i] << " ";
     }
-    for(auto it : data._dataStub) {
-        _g[1]._data.push_back(it);
-    }
-    for(auto it : data._dataRight) {
-        _g[2]._data.push_back(it);
-    }
-    _g[0]._listType = translateDirection::LEFT;
-    _g[1]._listType = translateDirection::STUB;
-    _g[2]._listType = translateDirection::RIGHT;
+    out << std::endl;
+    return out;
 }
 
-void Grid::StreamStep() {
-    for(int i = 0; i < 3; i++) {
-        _g[i].stream();
+Grid::Grid(std::array<TranslationVectors, 3> inputData, int size): _grid(inputData), _size(size) {};
+
+bool Grid::streamStep() {
+    for (auto& it : _grid) {
+        it.stream();
     }
+    return false;
+}
+
+std::array<double, 3> Grid::operator[](int i) {
+    return std::array<double, 3>{_grid[0][i], _grid[1][i], _grid[2][i]};
+}
+
+bool Grid::collisionStep() {
+    std::array<double, 3> w = {0.25, 0.5, 0.25};
+    for (int i = 0; i < _size; i++) {
+        auto curF = this->operator[](i);
+        double rho = curF[0] + curF[1] + curF[2];
+        double u = curF[2] - curF[0];
+        std::array<double, 3> feq;
+        feq[0] = w[0] * rho * (1.0 - 3.0 * u + 4.5 * u * u - 1.5 * u * u);
+        feq[1] = w[1] * rho * (1.0 - 1.5 * u * u);
+        feq[2] = w[2] * rho * (1.0 + 3.0 * u + 4.5 * u * u - 1.5 * u * u);
+
+        for (int j = 0; j < 3; j++) {
+            _grid[j][i] = curF[j] - 0.001 * (curF[j] - feq[j]);
+        }
+        _rho.push_back(rho);
+        _u.push_back(u);
+    }
+
+    return false;
+
 }
 
 std::ostream& operator<<(std::ostream & out, Grid & grid) {
-    std::vector left(grid._g[0]._data.begin(), grid._g[0]._data.end());
-    std::vector stub(grid._g[1]._data.begin(), grid._g[1]._data.end());
-    std::vector right(grid._g[2]._data.begin(), grid._g[2]._data.end());
-
-    for (int i = 0; i < grid._size; i++) {
-        out << left.at(i) << " ";
+    for (auto it : grid._grid) {
+        for (int i = 0; i < grid._size; i++) {
+            out << it[i] << " ";
+        }
+        out << std::endl;
     }
-    out << std::endl;
-    for (int i = 0; i < grid._size; i++) {
-        out << stub.at(i) << " ";
-    }
-    out << std::endl;
-    for (int i = 0; i < grid._size; i++) {
-        out << right.at(i) << " ";
-    }
-    out << std::endl;
-
-
     return out;
+}
+
+bool Grid::dump() {
+    std::ofstream rho;
+    rho.open("./rho.txt");
+    for(int i = 0; i < _rho.size(); i++) {
+        rho << _rho[i] << std::endl;
+    }
+    rho.close();
+    std::ofstream v;
+    v.open("./v.txt");
+    for(int i = 0; i < _u.size(); i++) {
+        v << _u[i] << std::endl;
+    }
+    v.close();
+    return false;
+
 }

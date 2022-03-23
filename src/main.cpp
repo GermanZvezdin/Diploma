@@ -2,19 +2,22 @@
 #include <grid.h>
 
 int main() {
-    std::vector<double> left = {0, 0, 0, 0, 1};
-    std::vector<double> stub = {0, 0, 5, 0, 0};
-    std::vector<double> right = {0, 0, 0, 0, 2};
+    std::vector<double> dataLeft = {1, 0, 0, 0, 0, 0, 1};
+    std::vector<double> dataStub = {0, 0, 0, 2, 0, 0, 0};
+    std::vector<double> dataRight ={3, 0, 0, 0, 0, 0, 3};
 
-    GridInputData input;
-    input._dataLeft = left;
-    input._dataStub = stub;
-    input._dataRight = right;
+    TranslationVectors L(dataLeft, translateDirection::LEFT), S(dataStub, translateDirection::STUB), R(dataRight, translateDirection::RIGHT);
+    std::array<TranslationVectors, 3> f = {L, S, R};
+    Grid grid(f, dataLeft.size());
 
-    Grid g(input);
+    for (int i = 0; i < 30; i++) {
 
-    for(int i = 0; i < 10; i++) {
-        std::cout << g << std::endl;
-        g.StreamStep();
+        grid.collisionStep();
+        grid.streamStep();
+
     }
+    std::cout << grid;
+    std::cout << std::endl;
+    grid.dump();
+    return 0;
 }
