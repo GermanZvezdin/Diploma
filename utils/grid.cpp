@@ -9,10 +9,17 @@ TranslationVectors::TranslationVectors() {
     _offset = 0;
 }
 
-TranslationVectors::TranslationVectors(std::vector<double> &initialData, translateDirection mode): _f(initialData), _translationDirection(mode) {};
+TranslationVectors::TranslationVectors(int size, translateDirection mode): _translationDirection(mode) {
+    _f.resize(size);
+};
 
 bool TranslationVectors::stream() {
     _offset++;
+    return false;
+}
+
+bool TranslationVectors::resize(int newSize) {
+    _f.resize(newSize);
     return false;
 }
 
@@ -49,6 +56,12 @@ double& TranslationVectors::operator[](int i) {
     return _f[idx];
 }
 
+bool TranslationVectors::init(translateDirection type, int size) {
+    _f.resize(size);
+    _translationDirection = type;
+    return false;
+}
+
 std::ostream& operator<<(std::ostream& out, TranslationVectors& data) {
     for(int i = 0; i < data._f.size(); i++) {
         out << data[i] << " ";
@@ -57,7 +70,12 @@ std::ostream& operator<<(std::ostream& out, TranslationVectors& data) {
     return out;
 }
 
-Grid::Grid(std::array<TranslationVectors, 3> inputData, int size): _grid(inputData), _size(size) {};
+Grid::Grid(int size, double tau): _size(size), _tau(tau), _inverseTau(1.0 / _tau) {
+    for(int i = static_cast<int>(translateDirection::LEFT); i <= static_cast<int>(translateDirection::RIGHT); i++) {
+        TranslationVectors f(size, static_cast<translateDirection>(i));
+        _grid.push_back(f);
+    }
+};
 
 bool Grid::streamStep() {
     for (auto& it : _grid) {
@@ -71,21 +89,18 @@ std::array<double, 3> Grid::operator[](int i) {
 }
 
 bool Grid::collisionStep() {
-    std::array<double, 3> w = {0.25, 0.5, 0.25};
     for (int i = 0; i < _size; i++) {
         auto curF = this->operator[](i);
         double rho = curF[0] + curF[1] + curF[2];
-        double u = curF[2] - curF[0];
+        double u = (curF[2] - curF[0]) / rho;
         std::array<double, 3> feq;
-        feq[0] = w[0] * rho * (1.0 - 3.0 * u + 4.5 * u * u - 1.5 * u * u);
-        feq[1] = w[1] * rho * (1.0 - 1.5 * u * u);
-        feq[2] = w[2] * rho * (1.0 + 3.0 * u + 4.5 * u * u - 1.5 * u * u);
+        feq[0] = _w[0] * rho * (1.0 - 3.0 * u + 4.5 * u * u - 1.5 * u * u);
+        feq[1] = _w[1] * rho * (1.0 - 1.5 * u * u);
+        feq[2] = _w[2] * rho * (1.0 + 3.0 * u + 4.5 * u * u - 1.5 * u * u);
 
         for (int j = 0; j < 3; j++) {
-            _grid[j][i] = curF[j] - 0.001 * (curF[j] - feq[j]);
+            _grid[j][i] = curF[j] - _inverseTau * (curF[j] - feq[j]);
         }
-        _rho.push_back(rho);
-        _u.push_back(u);
     }
 
     return false;
@@ -93,11 +108,13 @@ bool Grid::collisionStep() {
 }
 
 std::ostream& operator<<(std::ostream & out, Grid & grid) {
-    for (auto it : grid._grid) {
-        for (int i = 0; i < grid._size; i++) {
+    for (int i = 0; i < grid._size; i++) {
+        double rho = 0.0;
+        for (auto it : grid._grid) {
             out << it[i] << " ";
+            rho += it[i];
         }
-        out << std::endl;
+        out << rho << std::endl;
     }
     return out;
 }
@@ -105,16 +122,44 @@ std::ostream& operator<<(std::ostream & out, Grid & grid) {
 bool Grid::dump() {
     std::ofstream rho;
     rho.open("./rho.txt");
-    for(int i = 0; i < _rho.size(); i++) {
-        rho << _rho[i] << std::endl;
+    for(int i = 0; i < _rhoData.size(); i++) {
+        rho << _rhoData[i] << std::endl;
     }
     rho.close();
+    /*
     std::ofstream v;
     v.open("./v.txt");
     for(int i = 0; i < _u.size(); i++) {
         v << _u[i] << std::endl;
     }
     v.close();
+     */
     return false;
 
+}
+
+bool Grid::init() {
+    for (int i = 0; i < _size; i++) {
+        double rho = (i > (_size / 2)) ? 1.001 : 1.0;
+        double u = 0.0;
+        std::array<double, 3> feq;
+        feq[0] = _w[0] * rho * (1.0 - 3.0 * u + 4.5 * u * u - 1.5 * u * u);
+        feq[1] = _w[1] * rho * (1.0 - 1.5 * u * u);
+        feq[2] = _w[2] * rho * (1.0 + 3.0 * u + 4.5 * u * u - 1.5 * u * u);
+        auto directionVectorsCount = static_cast<int>(translateDirection::RIGHT) - static_cast<int>(translateDirection::LEFT) + 1;
+        for (int j = 0; j < directionVectorsCount; j++) {
+            _grid[j][i] = feq[j];
+        }
+    }
+    return false;
+}
+
+bool Grid::pushCurrentData() {
+    for (int i = 0; i < _size; i++) {
+        double rho = 0.0;
+        for (auto it : _grid) {
+            rho += it[i];
+        }
+        _rhoData.push_back(rho);
+    }
 }
