@@ -88,6 +88,27 @@ std::array<double, 3> Grid::operator[](int i) {
     return std::array<double, 3>{_grid[0][i], _grid[1][i], _grid[2][i]};
 }
 
+bool Grid::forceStep(double t) {
+    double F = sin(t * 0.1);
+    for (int i = 0; i < _size; i++) {
+        auto curF = this->operator[](i);
+        double rho = curF[0] + curF[1] + curF[2];
+        double u = (curF[2] - curF[0]) / rho;
+        double a = F / rho;
+        double deltaU = a * 1.0f;
+        std::array<double, 3> deltaFq;
+        deltaFq[0] = _w[0] * rho * ((3.0 * (-1.0 - u) + 9.0 * u) * deltaU + (4.5 * deltaU * deltaU - 1.5 * deltaU * deltaU));
+        deltaFq[1] = _w[1] * rho * (3.0 * (-u) * deltaU - 1.5 * deltaU * deltaU);
+        deltaFq[2] = _w[2] * rho * ((3.0 * (1.0 - u) + 9.0 * u) * deltaU + (4.5 * deltaU * deltaU - 1.5 * deltaU * deltaU));
+
+        for (int j = 0; j < 3; j++) {
+            _grid[j][i] = curF[j] + deltaFq[j];
+        }
+    }
+
+    return false;
+}
+
 bool Grid::collisionStep() {
     for (int i = 0; i < _size; i++) {
         auto curF = this->operator[](i);

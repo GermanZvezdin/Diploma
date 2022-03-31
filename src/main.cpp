@@ -2,14 +2,13 @@
 #include <grid.h>
 
 int main() {
-    Grid grid(100);
+    Grid grid(100, 0.51);
     grid.init();
     for (int i = 0; i < 10; i++) {
-        grid.streamStep();
+        grid.forceStep(i);
         grid.collisionStep();
-        if (i % 3 == 0) {
-            grid.pushCurrentData();
-        }
+        grid.streamStep();
+        grid.pushCurrentData();
     }
     std::cout << grid;
     grid.dump();

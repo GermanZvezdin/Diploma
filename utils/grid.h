@@ -7,6 +7,7 @@
 #include <vector>
 #include <ostream>
 #include <fstream>
+#include <cmath>
 
 enum class translateDirection { LEFT = -1, STUB = 0, RIGHT = 1 };
 
@@ -37,6 +38,7 @@ public:
     Grid(int size, double tau);
     bool streamStep();
     bool collisionStep();
+    bool forceStep(double t);
     bool init();
     std::array<double, 3> operator[](int i);
     friend std::ostream& operator<<(std::ostream & out, Grid & grid);
