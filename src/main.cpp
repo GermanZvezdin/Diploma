@@ -2,9 +2,9 @@
 #include <grid.h>
 
 int main() {
-    Grid grid(100, 0.51);
+    Grid grid(100, 1.51);
     grid.init();
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 1000; i++) {
         grid.forceStep(i);
         grid.collisionStep();
         grid.streamStep();
